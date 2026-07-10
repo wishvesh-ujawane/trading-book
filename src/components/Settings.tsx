@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, Target, ExternalLink } from 'lucide-react';
+import { Sparkles, Target, ExternalLink, Check, Trash2 } from 'lucide-react';
 import { dbService } from '../lib/dbService';
 import { UserGoals } from '../types';
 import {
@@ -26,6 +26,14 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
   const [winRateTarget, setWinRateTarget] = useState('');
   const [tradeCountTarget, setTradeCountTarget] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
+  /**
+   * Tracks the key that was persisted before the modal opened. Used to
+   * decide whether to show the "already saved" chip vs. the raw input, so
+   * that a stored key isn't blindly re-populated into a password field
+   * (which risks accidental over-typing / deletion).
+   */
+  const [storedKeySnapshot, setStoredKeySnapshot] = useState('');
+  const [editingKey, setEditingKey] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Sync form state with incoming goals + stored key whenever the modal opens.
@@ -46,7 +54,10 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
         ? String(goals.monthlyTradeCountTarget)
         : '',
     );
-    setGeminiKey(getStoredApiKey());
+    const existing = getStoredApiKey();
+    setStoredKeySnapshot(existing);
+    setGeminiKey(existing);
+    setEditingKey(existing === '');
   }, [open, goals]);
 
   const parseOptional = (s: string): number | undefined => {
@@ -54,6 +65,15 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
     if (trimmed === '') return undefined;
     const n = Number(trimmed);
     return Number.isFinite(n) ? n : undefined;
+  };
+
+  /** Show only the first 4 + last 4 characters when a key is stored. */
+  const maskedKey = (k: string) =>
+    k.length <= 10 ? '••••' : `${k.slice(0, 4)}••••${k.slice(-4)}`;
+
+  const handleClearKey = () => {
+    setGeminiKey('');
+    setEditingKey(true);
   };
 
   const handleSave = async () => {
@@ -131,7 +151,7 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
             placeholder="e.g. 10000"
             value={profitTarget}
             onChange={(e) => setProfitTarget(e.target.value)}
-            hint="Positive number in INR"
+            hint="Target profit in INR"
           />
           <Input
             label="Win rate target (%)"
@@ -154,12 +174,16 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
             placeholder="e.g. 20"
             value={tradeCountTarget}
             onChange={(e) => setTradeCountTarget(e.target.value)}
-            hint="Trades logged this month"
+            hint="Target number of trades"
           />
         </div>
       </section>
 
-      <hr className="border-slate-800" />
+      <div
+        role="separator"
+        aria-hidden="true"
+        className="my-6 h-px bg-slate-800"
+      />
 
       <section className="space-y-4">
         <header className="flex items-start gap-3">
@@ -170,9 +194,9 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
             <h3 className="font-display font-bold text-white">AI Coach (Gemini)</h3>
             <p className="text-xs text-slate-400 mt-0.5">
               Bring your own Gemini API key to unlock per-trade coaching and
-              weekly reviews. The key is stored only in this browser (
-              <code className="text-slate-300">localStorage</code>) and sent
-              directly to Google&apos;s Gemini endpoint — never to us.
+              weekly reviews. The key is stored only in this browser
+              (localStorage) and sent directly to Google&apos;s Gemini
+              endpoint — never to us.
             </p>
             <a
               href="https://aistudio.google.com/apikey"
@@ -185,19 +209,47 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
           </div>
         </header>
 
-        <Input
-          label="Gemini API key"
-          type="password"
-          autoComplete="off"
-          placeholder="AIza…"
-          value={geminiKey}
-          onChange={(e) => setGeminiKey(e.target.value)}
-          hint={
-            geminiKey
-              ? 'A key is set. Leave field as-is to keep, clear it to remove.'
-              : 'Leave empty to keep the AI Coach disabled.'
-          }
-        />
+        {!editingKey && storedKeySnapshot ? (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="inline-flex items-center justify-center rounded-full bg-emerald-500/20 p-1">
+                <Check className="w-3 h-3 text-emerald-400" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+                  API key saved
+                </div>
+                <div className="font-mono text-xs text-slate-200 truncate">
+                  {maskedKey(storedKeySnapshot)}
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleClearKey}
+              type="button"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Replace
+            </Button>
+          </div>
+        ) : (
+          <Input
+            label="Gemini API key"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="AIzaSy…"
+            value={geminiKey}
+            onChange={(e) => setGeminiKey(e.target.value)}
+            hint={
+              storedKeySnapshot
+                ? 'Paste a new key to replace the existing one, or leave blank to disable the AI Coach.'
+                : 'Leave empty to keep the AI Coach disabled.'
+            }
+          />
+        )}
       </section>
     </Modal>
   );
