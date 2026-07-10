@@ -1,15 +1,9 @@
 import { useMemo } from 'react';
 import { Trade, UserStats } from '../types';
 import DashboardCharts from './DashboardCharts';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Target, 
-  Percent, 
-  BarChart3, 
-  LineChart, 
-  PieChart as PieIcon, 
-  Briefcase,
+import { StatCard, TabPill, TabPillGroup } from './ui';
+import {
+  BarChart3,
   AlertCircle
 } from 'lucide-react';
 
@@ -148,108 +142,104 @@ export default function Dashboard({
         {/* Filter controls */}
         <div className="flex flex-wrap gap-2.5 items-center">
           {/* Live vs Demo filter */}
-          <div className="flex bg-slate-950/80 border border-slate-850 rounded-xl p-1 text-xs font-semibold">
+          <TabPillGroup aria-label="Filter trades by type">
             {(['ALL', 'LIVE', 'DEMO'] as const).map((type) => (
-              <button
+              <TabPill
                 key={type}
+                active={tradeTypeFilter === type}
                 onClick={() => onTradeTypeFilterChange(type)}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  tradeTypeFilter === type 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-950' 
-                    : 'text-slate-400 hover:text-white'
-                }`}
               >
                 {type === 'ALL' ? 'All' : type === 'LIVE' ? 'Live Only' : 'Demo Only'}
-              </button>
+              </TabPill>
             ))}
-          </div>
+          </TabPillGroup>
 
           {/* Timeframe Selector */}
-          <div className="flex bg-slate-950/80 border border-slate-850 rounded-xl p-1 text-xs font-semibold">
+          <TabPillGroup aria-label="Filter trades by timeframe">
             {(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'ALL'] as const).map((tf) => (
-              <button
+              <TabPill
                 key={tf}
+                active={timeframe === tf}
                 onClick={() => onTimeframeChange(tf)}
-                className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  timeframe === tf 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-950' 
-                    : 'text-slate-400 hover:text-white'
-                }`}
+                className="px-2.5"
               >
                 {tf.charAt(0) + tf.slice(1).toLowerCase()}
-              </button>
+              </TabPill>
             ))}
-          </div>
+          </TabPillGroup>
         </div>
       </div>
 
       {/* Bento Grid Metrics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        
-        {/* Net Profit */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between relative overflow-hidden group hover:border-slate-700 transition-all">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/5 rounded-bl-full pointer-events-none transition-all group-hover:bg-emerald-500/10"></div>
-          <div>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Net Profit / Loss</span>
-            <div className={`text-2xl sm:text-3xl font-black mt-2 font-mono ${stats.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {stats.netProfit >= 0 ? '+' : ''}₹{stats.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </div>
-          </div>
-          <div className="text-[10px] text-slate-400 mt-4 pt-2 border-t border-slate-800/80 flex justify-between">
-            <span>Gross: ₹{stats.grossProfit.toLocaleString('en-IN')}</span>
-            <span>Fees: ₹{stats.totalFeesAndSlippage.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
 
-        {/* Win Rate */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between relative overflow-hidden group hover:border-slate-700 transition-all">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 rounded-bl-full pointer-events-none transition-all group-hover:bg-blue-500/10"></div>
-          <div>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Win Rate</span>
-            <div className="text-2xl sm:text-3xl font-black mt-2 text-blue-400 font-mono">
-              {stats.winRate}%
+        <StatCard
+          label="Net Profit / Loss"
+          accent={stats.netProfit >= 0 ? 'emerald' : 'rose'}
+          valueClassName={stats.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}
+          value={
+            <>
+              {stats.netProfit >= 0 ? '+' : ''}
+              {'\u20B9'}
+              {stats.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </>
+          }
+          footer={
+            <div className="flex justify-between">
+              <span>Gross: {'\u20B9'}{stats.grossProfit.toLocaleString('en-IN')}</span>
+              <span>Fees: {'\u20B9'}{stats.totalFeesAndSlippage.toLocaleString('en-IN')}</span>
             </div>
-          </div>
-          <div className="text-[10px] text-slate-400 mt-4 pt-2 border-t border-slate-800/80 flex justify-between font-mono">
-            <span className="text-emerald-400 font-bold">{stats.winCount}W</span>
-            <span className="text-slate-500">|</span>
-            <span className="text-rose-400 font-bold">{stats.lossCount}L</span>
-            <span className="text-slate-500">|</span>
-            <span className="text-slate-400">{stats.breakEvenCount}BE</span>
-          </div>
-        </div>
+          }
+        />
 
-        {/* Expectancy */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between relative overflow-hidden group hover:border-slate-700 transition-all">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/5 rounded-bl-full pointer-events-none transition-all group-hover:bg-indigo-500/10"></div>
-          <div>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Expectancy</span>
-            <div className={`text-2xl sm:text-3xl font-black mt-2 font-mono ${stats.expectancy >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>
-              {stats.expectancy >= 0 ? '+' : ''}₹{stats.expectancy.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <StatCard
+          label="Win Rate"
+          accent="blue"
+          valueClassName="text-blue-400"
+          value={`${stats.winRate}%`}
+          footer={
+            <div className="flex justify-between font-mono">
+              <span className="text-emerald-400 font-bold">{stats.winCount}W</span>
+              <span className="text-slate-500">|</span>
+              <span className="text-rose-400 font-bold">{stats.lossCount}L</span>
+              <span className="text-slate-500">|</span>
+              <span className="text-slate-400">{stats.breakEvenCount}BE</span>
             </div>
-          </div>
-          <div className="text-[10px] text-slate-400 mt-4 pt-2 border-t border-slate-800/80">
-            Avg net return per trade executed.
-          </div>
-        </div>
+          }
+        />
 
-        {/* Profit Factor */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between relative overflow-hidden group hover:border-slate-700 transition-all">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/5 rounded-bl-full pointer-events-none transition-all group-hover:bg-purple-500/10"></div>
-          <div>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Profit Factor</span>
-            <div className={`text-2xl sm:text-3xl font-black mt-2 font-mono ${
-              stats.profitFactor >= 2.0 ? 'text-emerald-400' : 
-              stats.profitFactor >= 1.0 ? 'text-indigo-400' : 'text-rose-400'
-            }`}>
-              {stats.profitFactor.toFixed(2)}
+        <StatCard
+          label="Expectancy"
+          accent="indigo"
+          valueClassName={stats.expectancy >= 0 ? 'text-indigo-400' : 'text-rose-400'}
+          value={
+            <>
+              {stats.expectancy >= 0 ? '+' : ''}
+              {'\u20B9'}
+              {stats.expectancy.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </>
+          }
+          footer="Avg net return per trade executed."
+        />
+
+        <StatCard
+          label="Profit Factor"
+          accent="purple"
+          valueClassName={
+            stats.profitFactor >= 2.0
+              ? 'text-emerald-400'
+              : stats.profitFactor >= 1.0
+              ? 'text-indigo-400'
+              : 'text-rose-400'
+          }
+          value={stats.profitFactor.toFixed(2)}
+          footer={
+            <div className="flex justify-between">
+              <span>Avg Win: {'\u20B9'}{stats.averageWin.toLocaleString('en-IN')}</span>
+              <span>Avg Loss: {'\u20B9'}{stats.averageLoss.toLocaleString('en-IN')}</span>
             </div>
-          </div>
-          <div className="text-[10px] text-slate-400 mt-4 pt-2 border-t border-slate-800/80 flex justify-between">
-            <span>Avg Win: ₹{stats.averageWin.toLocaleString('en-IN')}</span>
-            <span>Avg Loss: ₹{stats.averageLoss.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
+          }
+        />
 
       </div>
 

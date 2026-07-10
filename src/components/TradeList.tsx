@@ -222,7 +222,12 @@ export default function TradeList({ userId, trades, brokers, onEditTrade, onDele
                           <div className="flex items-center gap-1.5">
                             {trade.symbol}
                             {trade.screenshotUrl && (
-                              <ImageIcon className="w-3.5 h-3.5 text-indigo-400 shrink-0" title="Screenshot attached" />
+                              <ImageIcon
+                                className="w-3.5 h-3.5 text-indigo-400 shrink-0"
+                                aria-label="Screenshot attached"
+                              >
+                                <title>Screenshot attached</title>
+                              </ImageIcon>
                             )}
                           </div>
                         </td>

@@ -8,6 +8,7 @@ import Dashboard from './components/Dashboard';
 import TradeForm from './components/TradeForm';
 import TradeList from './components/TradeList';
 import BrokerSettings from './components/BrokerSettings';
+import { Button, IconButton, TabPill, TabPillGroup } from './components/ui';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
@@ -18,9 +19,7 @@ import {
   LogOut, 
   CloudLightning, 
   Globe, 
-  Sparkles,
   RefreshCw,
-  User,
   ShieldCheck,
   AlertTriangle
 } from 'lucide-react';
@@ -149,50 +148,51 @@ export default function App() {
               </div>
 
               {/* Mobile quick action trigger */}
-              <button
+              <IconButton
+                aria-label="Log a new trade"
                 onClick={() => { setTradeToEdit(null); setIsLoggingTrade(true); }}
-                className="sm:hidden bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-xl transition-all shadow-md cursor-pointer"
+                className="sm:hidden bg-indigo-600 hover:bg-indigo-500 hover:text-white text-white border-transparent shadow-md"
               >
                 <Plus className="w-4 h-4" />
-              </button>
+              </IconButton>
             </div>
 
             {/* Navigation tabs & Action controls */}
             <div className="flex flex-wrap items-center gap-4 justify-between sm:justify-end">
-              
+
               {/* Desktop Tabs */}
-              <nav className="flex bg-slate-850/50 border border-slate-800 rounded-xl p-1 text-xs font-semibold">
-                <button
+              <TabPillGroup aria-label="Main navigation">
+                <TabPill
+                  active={activeTab === 'DASHBOARD' && !isLoggingTrade}
                   onClick={() => { setActiveTab('DASHBOARD'); setIsLoggingTrade(false); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${activeTab === 'DASHBOARD' && !isLoggingTrade ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-950' : 'text-slate-400 hover:text-white'}`}
+                  leadingIcon={<BarChart3 className="w-3.5 h-3.5" />}
                 >
-                  <BarChart3 className="w-3.5 h-3.5" />
                   Dashboard
-                </button>
-                <button
+                </TabPill>
+                <TabPill
+                  active={activeTab === 'TRADES_LOG' && !isLoggingTrade}
                   onClick={() => { setActiveTab('TRADES_LOG'); setIsLoggingTrade(false); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${activeTab === 'TRADES_LOG' && !isLoggingTrade ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-950' : 'text-slate-400 hover:text-white'}`}
+                  leadingIcon={<BookOpen className="w-3.5 h-3.5" />}
                 >
-                  <BookOpen className="w-3.5 h-3.5" />
                   Journal Log
-                </button>
-                <button
+                </TabPill>
+                <TabPill
+                  active={activeTab === 'BROKER_SETTINGS' && !isLoggingTrade}
                   onClick={() => { setActiveTab('BROKER_SETTINGS'); setIsLoggingTrade(false); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${activeTab === 'BROKER_SETTINGS' && !isLoggingTrade ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-950' : 'text-slate-400 hover:text-white'}`}
+                  leadingIcon={<Briefcase className="w-3.5 h-3.5" />}
                 >
-                  <Briefcase className="w-3.5 h-3.5" />
                   Brokers & Fees
-                </button>
-              </nav>
+                </TabPill>
+              </TabPillGroup>
 
               {/* Quick entry action trigger */}
-              <button
+              <Button
                 onClick={() => { setTradeToEdit(null); setIsLoggingTrade(true); }}
-                className="hidden sm:flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 px-4 rounded-xl transition-all shadow-md cursor-pointer"
+                leadingIcon={<Plus className="w-4 h-4" />}
+                className="hidden sm:inline-flex"
               >
-                <Plus className="w-4 h-4" />
                 Log Trade
-              </button>
+              </Button>
 
               {/* User Profile / Logout details */}
               <div className="flex items-center gap-3 border-l border-slate-800 pl-4">
@@ -214,13 +214,14 @@ export default function App() {
                     )}
                   </span>
                 </div>
-                <button
+                <IconButton
+                  aria-label={isGuest ? 'Exit guest mode' : 'Sign out account'}
+                  variant="danger"
                   onClick={handleSignOut}
-                  className="p-2 hover:bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
-                  title={isGuest ? "Exit guest mode" : "Sign Out Account"}
+                  title={isGuest ? 'Exit guest mode' : 'Sign Out Account'}
                 >
                   <LogOut className="w-4 h-4" />
-                </button>
+                </IconButton>
               </div>
 
             </div>
@@ -239,12 +240,9 @@ export default function App() {
                 You are playing on **Offline Sandbox Mode**. All trades are cached locally. Sign up to save logs permanently in the cloud!
               </span>
             </div>
-            <button
-              onClick={handleSignOut}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider transition-all cursor-pointer"
-            >
+            <Button variant="warning" size="sm" onClick={handleSignOut}>
               Sync to Cloud Profile
-            </button>
+            </Button>
           </div>
         </div>
       )}
