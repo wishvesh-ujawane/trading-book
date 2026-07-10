@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Trade, BrokerConfig } from '../types';
 import { dbService } from '../lib/dbService';
+import { summarizeTrade } from '../lib/aiCoach';
+import { AiCoachPanel } from './AiCoachPanel';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -27,9 +29,10 @@ interface TradeListProps {
   brokers: BrokerConfig[];
   onEditTrade: (trade: Trade) => void;
   onDeleteSuccess?: () => void;
+  onOpenSettings: () => void;
 }
 
-export default function TradeList({ userId, trades, brokers, onEditTrade, onDeleteSuccess }: TradeListProps) {
+export default function TradeList({ userId, trades, brokers, onEditTrade, onDeleteSuccess, onOpenSettings }: TradeListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'LIVE' | 'DEMO'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'WIN' | 'LOSS' | 'BREAK_EVEN'>('ALL');
@@ -433,6 +436,38 @@ export default function TradeList({ userId, trades, brokers, onEditTrade, onDele
                                     </div>
                                   )}
                                 </div>
+
+                                {/* AI Coach — full-width row under the 3 columns */}
+                                <div className="md:col-span-12">
+                                  <AiCoachPanel
+                                    savedText={trade.aiSummary?.text}
+                                    onOpenSettings={onOpenSettings}
+                                    onGenerate={() => summarizeTrade(trade)}
+                                    onSave={async (text) => {
+                                      await dbService.saveTrade(
+                                        {
+                                          ...trade,
+                                          aiSummary: {
+                                            text,
+                                            generatedAt: Date.now(),
+                                            model: 'gemini-2.5-flash',
+                                          },
+                                        },
+                                        userId,
+                                      );
+                                    }}
+                                    onClear={
+                                      trade.aiSummary
+                                        ? async () => {
+                                            const { aiSummary: _drop, ...rest } = trade;
+                                            void _drop;
+                                            await dbService.saveTrade(rest as Trade, userId);
+                                          }
+                                        : undefined
+                                    }
+                                    description="Gemini reviews this trade using your entry, exit, fees, and self-reflection."
+                                  />
+                                </div>
                               </motion.div>
                             </td>
                           </tr>
@@ -557,6 +592,39 @@ export default function TradeList({ userId, trades, brokers, onEditTrade, onDele
                             </div>
                           </div>
                         )}
+
+                        {/* AI Coach on mobile — same panel, stop-propagation so tap
+                            on buttons doesn't collapse the row. */}
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <AiCoachPanel
+                            compact
+                            savedText={trade.aiSummary?.text}
+                            onOpenSettings={onOpenSettings}
+                            onGenerate={() => summarizeTrade(trade)}
+                            onSave={async (text) => {
+                              await dbService.saveTrade(
+                                {
+                                  ...trade,
+                                  aiSummary: {
+                                    text,
+                                    generatedAt: Date.now(),
+                                    model: 'gemini-2.5-flash',
+                                  },
+                                },
+                                userId,
+                              );
+                            }}
+                            onClear={
+                              trade.aiSummary
+                                ? async () => {
+                                    const { aiSummary: _drop, ...rest } = trade;
+                                    void _drop;
+                                    await dbService.saveTrade(rest as Trade, userId);
+                                  }
+                                : undefined
+                            }
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

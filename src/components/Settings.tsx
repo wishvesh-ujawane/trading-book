@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Target } from 'lucide-react';
+import { Sparkles, Target, ExternalLink } from 'lucide-react';
 import { dbService } from '../lib/dbService';
 import { UserGoals } from '../types';
+import {
+  getStoredApiKey,
+  setStoredApiKey,
+} from '../lib/aiCoach';
 import { Button, Input, Modal, useToast } from './ui';
 
 interface SettingsProps {
@@ -12,8 +16,8 @@ interface SettingsProps {
 }
 
 /**
- * User preferences dialog. Currently houses monthly trading goals.
- * Future BYOK Gemini key input, theme toggle, etc. can be added here.
+ * User preferences dialog. Currently houses monthly trading goals and the
+ * bring-your-own-key Gemini API key for the AI Coach.
  */
 export default function Settings({ open, onClose, userId, goals }: SettingsProps) {
   const toast = useToast();
@@ -21,9 +25,10 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
   const [profitTarget, setProfitTarget] = useState('');
   const [winRateTarget, setWinRateTarget] = useState('');
   const [tradeCountTarget, setTradeCountTarget] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Sync form state with incoming goals whenever the modal opens.
+  // Sync form state with incoming goals + stored key whenever the modal opens.
   useEffect(() => {
     if (!open) return;
     setProfitTarget(
@@ -41,6 +46,7 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
         ? String(goals.monthlyTradeCountTarget)
         : '',
     );
+    setGeminiKey(getStoredApiKey());
   }, [open, goals]);
 
   const parseOptional = (s: string): number | undefined => {
@@ -68,11 +74,16 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
         return;
       }
       await dbService.saveGoals(next, userId);
-      toast.success('Goals saved', 'Progress rings will update on the dashboard.');
+      // Persist the Gemini key locally alongside goals (BYOK, device-only).
+      setStoredApiKey(geminiKey);
+      toast.success(
+        'Settings saved',
+        geminiKey ? 'Goals stored. AI Coach ready.' : 'Goals stored.',
+      );
       onClose();
     } catch (err) {
       toast.error(
-        'Could not save goals',
+        'Could not save settings',
         err instanceof Error ? err.message : 'Unknown error',
       );
     } finally {
@@ -146,6 +157,47 @@ export default function Settings({ open, onClose, userId, goals }: SettingsProps
             hint="Trades logged this month"
           />
         </div>
+      </section>
+
+      <hr className="border-slate-800" />
+
+      <section className="space-y-4">
+        <header className="flex items-start gap-3">
+          <div className="bg-purple-500/15 border border-purple-500/30 rounded-xl p-2">
+            <Sparkles className="w-4 h-4 text-purple-400" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-display font-bold text-white">AI Coach (Gemini)</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Bring your own Gemini API key to unlock per-trade coaching and
+              weekly reviews. The key is stored only in this browser (
+              <code className="text-slate-300">localStorage</code>) and sent
+              directly to Google&apos;s Gemini endpoint — never to us.
+            </p>
+            <a
+              href="https://aistudio.google.com/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 mt-1"
+            >
+              Get a free API key <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </header>
+
+        <Input
+          label="Gemini API key"
+          type="password"
+          autoComplete="off"
+          placeholder="AIza…"
+          value={geminiKey}
+          onChange={(e) => setGeminiKey(e.target.value)}
+          hint={
+            geminiKey
+              ? 'A key is set. Leave field as-is to keep, clear it to remove.'
+              : 'Leave empty to keep the AI Coach disabled.'
+          }
+        />
       </section>
     </Modal>
   );

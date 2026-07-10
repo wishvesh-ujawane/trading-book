@@ -32,6 +32,12 @@ export interface Trade {
   };
   screenshotUrl?: string; // base64 string or image asset URL
   status: 'WIN' | 'LOSS' | 'BREAK_EVEN';
+  /** AI Coach summary saved by the user (optional; per-device generation). */
+  aiSummary?: {
+    text: string;
+    generatedAt: number;
+    model: string;
+  };
 }
 
 export interface UserStats {

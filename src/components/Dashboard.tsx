@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { Trade, UserGoals, UserStats } from '../types';
 import DashboardCharts from './DashboardCharts';
+import { AiCoachPanel } from './AiCoachPanel';
+import { reviewWeek } from '../lib/aiCoach';
 import { Button, ProgressRing, StatCard, TabPill, TabPillGroup } from './ui';
 import {
   BarChart3,
@@ -16,6 +18,7 @@ interface DashboardProps {
   onTradeTypeFilterChange: (type: 'ALL' | 'LIVE' | 'DEMO') => void;
   goals: UserGoals;
   onEditGoals: () => void;
+  onOpenSettings: () => void;
 }
 
 export default function Dashboard({ 
@@ -25,7 +28,8 @@ export default function Dashboard({
   tradeTypeFilter,
   onTradeTypeFilterChange,
   goals,
-  onEditGoals
+  onEditGoals,
+  onOpenSettings,
 }: DashboardProps) {
 
   // Filter trades based on timeframe & trade type
@@ -382,6 +386,22 @@ export default function Dashboard({
       <div className="mt-8">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-3 pl-1">Performance Analytics Visualizations</span>
         <DashboardCharts trades={filteredTrades} />
+      </div>
+
+      {/* Weekly AI Review */}
+      <div>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-3 pl-1">Weekly AI Review</span>
+        <AiCoachPanel
+          title="This week's coach"
+          description="Gemini reviews your last 7 days of trades and highlights discipline and edge patterns."
+          onOpenSettings={onOpenSettings}
+          onGenerate={async () => {
+            const now = Date.now();
+            const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+            const recent = trades.filter((t) => t.timestamp >= weekAgo);
+            return reviewWeek(recent);
+          }}
+        />
       </div>
 
     </div>
