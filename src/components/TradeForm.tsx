@@ -305,13 +305,15 @@ export default function TradeForm({
     setImageError(null);
   }, [tradeToEdit, brokers]);
 
-  // When strategy changes, apply its defaults (only when the user hasn't set them).
+  // When strategy changes, apply its defaults. Overwrite existing values
+  // because the user explicitly picked this strategy — its defaults should
+  // trump the earlier auto-suggested holding style from the entry/exit time.
   useEffect(() => {
     if (!strategyId) return;
     const s = strategies.find((x) => x.id === strategyId);
     if (!s) return;
-    if (!chartTimeframe && s.defaultChartTimeframe) setChartTimeframe(s.defaultChartTimeframe);
-    if (!holdingStyle && s.defaultHoldingStyle) setHoldingStyle(s.defaultHoldingStyle);
+    if (s.defaultChartTimeframe) setChartTimeframe(s.defaultChartTimeframe);
+    if (s.defaultHoldingStyle) setHoldingStyle(s.defaultHoldingStyle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [strategyId]);
 
@@ -426,6 +428,12 @@ export default function TradeForm({
 
   const ledger = useMemo(() => computeLedger(previewTrade, currentBroker), [previewTrade, currentBroker]);
   const rr = useMemo(() => plannedRR(previewTrade), [previewTrade]);
+
+  // A meaningful preview requires quantity plus at least one of entry / exit
+  // price. Otherwise the flat brokerage / GST rows fire against nothing and
+  // the widget shows a spurious "LOSS -₹7.20".
+  const hasPreviewInput =
+    previewTrade.quantity > 0 && (previewTrade.entryPrice > 0 || previewTrade.exitPrice > 0);
 
   // Auto-suggest holding style when the user has entered both times but not picked one.
   useEffect(() => {
@@ -1177,6 +1185,11 @@ export default function TradeForm({
               <Calculator className="w-3 h-3" />
               Automated Net P&L
             </span>
+            {!hasPreviewInput ? (
+              <p className="text-[11px] text-slate-500 py-4 text-center">
+                Enter quantity and at least one price to preview fees and net P&L.
+              </p>
+            ) : (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1 text-[11px]">
                 <RowKV label="Gross P&L" value={ledger.grossPnl} highlight />
@@ -1208,6 +1221,7 @@ export default function TradeForm({
                 </span>
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>

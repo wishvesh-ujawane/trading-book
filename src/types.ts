@@ -290,6 +290,8 @@ export interface UserStats {
   grossProfit: number;
   grossLoss: number;
   netProfit: number;
+  /** Sum of pre-fees P&L across all trades (true gross across wins + losses). */
+  pnlGrossTotal: number;
   totalFeesAndSlippage: number;
   winCount: number;
   lossCount: number;

@@ -144,6 +144,7 @@ export default function Dashboard({
     let winCount = 0, lossCount = 0, breakEvenCount = 0;
     let grossProfit = 0, grossLoss = 0, netProfit = 0, totalFees = 0;
     let sumWins = 0, sumLosses = 0;
+    let pnlGrossTotal = 0;
     let rSum = 0, rCount = 0;
 
     filteredTrades.forEach((trade) => {
@@ -158,6 +159,7 @@ export default function Dashboard({
       }
 
       netProfit += trade.pnlNet;
+      pnlGrossTotal += trade.pnlGross ?? trade.pnlNet;
       totalFees += trade.brokerageFee + trade.slippageFee + trade.taxFee;
 
       if (typeof trade.rMultiple === 'number' && !isNaN(trade.rMultiple)) {
@@ -185,6 +187,7 @@ export default function Dashboard({
       grossProfit: parseFloat(grossProfit.toFixed(2)),
       grossLoss: parseFloat(grossLoss.toFixed(2)),
       netProfit: parseFloat(netProfit.toFixed(2)),
+      pnlGrossTotal: parseFloat(pnlGrossTotal.toFixed(2)),
       totalFeesAndSlippage: parseFloat(totalFees.toFixed(2)),
       winCount, lossCount, breakEvenCount,
       averageWin: parseFloat(averageWin.toFixed(2)),
@@ -417,7 +420,7 @@ export default function Dashboard({
           value={<>{stats.netProfit >= 0 ? '+' : ''}{'\u20B9'}{stats.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</>}
           footer={
             <div className="flex justify-between">
-              <span>Gross: {'\u20B9'}{stats.grossProfit.toLocaleString('en-IN')}</span>
+              <span>Gross: {'\u20B9'}{stats.pnlGrossTotal.toLocaleString('en-IN')}</span>
               <span>Fees: {'\u20B9'}{stats.totalFeesAndSlippage.toLocaleString('en-IN')}</span>
             </div>
           }
