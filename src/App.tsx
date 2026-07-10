@@ -9,6 +9,7 @@ import TradeForm from './components/TradeForm';
 import TradeList from './components/TradeList';
 import BrokerSettings from './components/BrokerSettings';
 import Settings from './components/Settings';
+import { BottomTabBar } from './components/BottomTabBar';
 import { Button, IconButton, TabPill, TabPillGroup } from './components/ui';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -157,11 +158,13 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Mobile quick action trigger */}
+              {/* Mobile quick action trigger (bottom bar handles this on <md,
+                  keep this visible only between sm and md so the tablet range
+                  still has quick access without the bottom bar). */}
               <IconButton
                 aria-label="Log a new trade"
                 onClick={() => { setTradeToEdit(null); setIsLoggingTrade(true); }}
-                className="sm:hidden bg-indigo-600 hover:bg-indigo-500 hover:text-white text-white border-transparent shadow-md"
+                className="hidden sm:inline-flex md:hidden bg-indigo-600 hover:bg-indigo-500 hover:text-white text-white border-transparent shadow-md"
               >
                 <Plus className="w-4 h-4" />
               </IconButton>
@@ -170,8 +173,8 @@ export default function App() {
             {/* Navigation tabs & Action controls */}
             <div className="flex flex-wrap items-center gap-4 justify-between sm:justify-end">
 
-              {/* Desktop Tabs */}
-              <TabPillGroup aria-label="Main navigation">
+              {/* Desktop Tabs — hidden below md (BottomTabBar takes over). */}
+              <TabPillGroup aria-label="Main navigation" className="hidden md:flex">
                 <TabPill
                   active={activeTab === 'DASHBOARD' && !isLoggingTrade}
                   onClick={() => { setActiveTab('DASHBOARD'); setIsLoggingTrade(false); }}
@@ -195,11 +198,11 @@ export default function App() {
                 </TabPill>
               </TabPillGroup>
 
-              {/* Quick entry action trigger */}
+              {/* Quick entry action trigger (desktop only). */}
               <Button
                 onClick={() => { setTradeToEdit(null); setIsLoggingTrade(true); }}
                 leadingIcon={<Plus className="w-4 h-4" />}
-                className="hidden sm:inline-flex"
+                className="hidden md:inline-flex"
               >
                 Log Trade
               </Button>
@@ -265,7 +268,7 @@ export default function App() {
       )}
 
       {/* Main Container Workspace */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 z-10">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 pb-24 md:pb-8 z-10">
         <AnimatePresence mode="wait">
           
           {/* Slide-in Form View */}
@@ -375,6 +378,14 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         userId={userId}
         goals={goals}
+      />
+
+      {/* Mobile bottom navigation (only visible below md). */}
+      <BottomTabBar
+        activeTab={activeTab}
+        isLoggingTrade={isLoggingTrade}
+        onSelectTab={(tab) => { setActiveTab(tab); setIsLoggingTrade(false); }}
+        onNewTrade={() => { setTradeToEdit(null); setIsLoggingTrade(true); }}
       />
 
     </div>
