@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { dbService } from './lib/dbService';
-import { Trade, BrokerConfig } from './types';
+import { Trade, BrokerConfig, UserGoals, EMPTY_GOALS } from './types';
 import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import TradeForm from './components/TradeForm';
 import TradeList from './components/TradeList';
 import BrokerSettings from './components/BrokerSettings';
+import Settings from './components/Settings';
 import { Button, IconButton, TabPill, TabPillGroup } from './components/ui';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -20,6 +21,7 @@ import {
   CloudLightning, 
   Globe, 
   RefreshCw,
+  Settings as SettingsIcon,
   ShieldCheck,
   AlertTriangle
 } from 'lucide-react';
@@ -32,11 +34,13 @@ export default function App() {
   // Core collections state
   const [trades, setTrades] = useState<Trade[]>([]);
   const [brokers, setBrokers] = useState<BrokerConfig[]>([]);
+  const [goals, setGoals] = useState<UserGoals>(EMPTY_GOALS);
 
   // Navigation & Form control
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'TRADES_LOG' | 'BROKER_SETTINGS'>('DASHBOARD');
   const [isLoggingTrade, setIsLoggingTrade] = useState(false);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Timeframe and type filters passed down
   const [timeframe, setTimeframe] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'ALL'>('ALL');
@@ -74,9 +78,15 @@ export default function App() {
       setBrokers(updatedBrokers);
     });
 
+    // Subscription for User Goals
+    const unsubscribeGoals = dbService.subscribeGoals(userId, (updatedGoals) => {
+      setGoals(updatedGoals);
+    });
+
     return () => {
       unsubscribeTrades();
       unsubscribeBrokers();
+      unsubscribeGoals();
     };
   }, [userId]);
 
@@ -215,6 +225,13 @@ export default function App() {
                   </span>
                 </div>
                 <IconButton
+                  aria-label="Open settings"
+                  onClick={() => setIsSettingsOpen(true)}
+                  title="Settings"
+                >
+                  <SettingsIcon className="w-4 h-4" />
+                </IconButton>
+                <IconButton
                   aria-label={isGuest ? 'Exit guest mode' : 'Sign out account'}
                   variant="danger"
                   onClick={handleSignOut}
@@ -292,6 +309,8 @@ export default function App() {
                   onTimeframeChange={setTimeframe}
                   tradeTypeFilter={tradeTypeFilter}
                   onTradeTypeFilterChange={setTradeTypeFilter}
+                  goals={goals}
+                  onEditGoals={() => setIsSettingsOpen(true)}
                 />
               )}
 
@@ -347,6 +366,14 @@ export default function App() {
         </div>
         <p>© 2026 Trading Journal Platform. Built with secure real-time Firestore database synchronization.</p>
       </footer>
+
+      {/* Settings modal (mounted globally so it works from any tab) */}
+      <Settings
+        open={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        userId={userId}
+        goals={goals}
+      />
 
     </div>
   );

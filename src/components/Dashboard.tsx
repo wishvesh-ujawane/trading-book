@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { Trade, UserStats } from '../types';
+import { Trade, UserGoals, UserStats } from '../types';
 import DashboardCharts from './DashboardCharts';
-import { StatCard, TabPill, TabPillGroup } from './ui';
+import { Button, ProgressRing, StatCard, TabPill, TabPillGroup } from './ui';
 import {
   BarChart3,
-  AlertCircle
+  AlertCircle,
+  Target
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -13,6 +14,8 @@ interface DashboardProps {
   onTimeframeChange: (timeframe: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'ALL') => void;
   tradeTypeFilter: 'ALL' | 'LIVE' | 'DEMO';
   onTradeTypeFilterChange: (type: 'ALL' | 'LIVE' | 'DEMO') => void;
+  goals: UserGoals;
+  onEditGoals: () => void;
 }
 
 export default function Dashboard({ 
@@ -20,7 +23,9 @@ export default function Dashboard({
   timeframe, 
   onTimeframeChange,
   tradeTypeFilter,
-  onTradeTypeFilterChange
+  onTradeTypeFilterChange,
+  goals,
+  onEditGoals
 }: DashboardProps) {
 
   // Filter trades based on timeframe & trade type
@@ -124,6 +129,30 @@ export default function Dashboard({
     };
   }, [filteredTrades]);
 
+  // Compute current-calendar-month stats independently of the timeframe/type
+  // filters, so the goal progress rings always track the actual month.
+  const monthProgress = useMemo(() => {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthTrades = trades.filter((t) => (t.date ?? '').startsWith(monthKey));
+    let netProfit = 0;
+    let wins = 0;
+    monthTrades.forEach((t) => {
+      netProfit += t.pnlNet;
+      if (t.status === 'WIN') wins += 1;
+    });
+    const total = monthTrades.length;
+    const winRate = total > 0 ? (wins / total) * 100 : 0;
+    return { netProfit, winRate, tradeCount: total };
+  }, [trades]);
+
+  const hasGoals =
+    goals.monthlyNetProfitTarget !== undefined ||
+    goals.monthlyWinRateTarget !== undefined ||
+    goals.monthlyTradeCountTarget !== undefined;
+
+  const monthName = new Date().toLocaleString('en-IN', { month: 'long' });
+
   return (
     <div className="space-y-6">
       
@@ -168,6 +197,97 @@ export default function Dashboard({
             ))}
           </TabPillGroup>
         </div>
+      </div>
+
+      {/* Monthly Goals — always visible; when unset shows a nudge to configure. */}
+      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 backdrop-blur-md shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div>
+            <h3 className="font-display text-sm font-bold text-white flex items-center gap-2">
+              <Target className="w-4 h-4 text-indigo-400" />
+              {monthName} Goals
+            </h3>
+            <p className="text-slate-400 text-[11px] mt-0.5">
+              Progress this calendar month toward your personal targets.
+            </p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={onEditGoals}>
+            {hasGoals ? 'Edit goals' : 'Set goals'}
+          </Button>
+        </div>
+
+        {hasGoals ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 justify-items-center">
+            {goals.monthlyNetProfitTarget !== undefined && (() => {
+              const target = goals.monthlyNetProfitTarget;
+              const progress = target > 0 ? monthProgress.netProfit / target : 0;
+              const pct = Math.round(progress * 100);
+              const positive = monthProgress.netProfit >= 0;
+              return (
+                <ProgressRing
+                  value={progress}
+                  colorClass={positive ? 'text-emerald-400' : 'text-rose-400'}
+                  label="Net P&L"
+                  hint={`Target: \u20B9${target.toLocaleString('en-IN')}`}
+                  aria-label={`${pct}% of monthly profit goal`}
+                >
+                  <span className={`text-lg font-black font-mono ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {pct}%
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {positive ? '+' : ''}{'\u20B9'}{Math.round(monthProgress.netProfit).toLocaleString('en-IN')}
+                  </span>
+                </ProgressRing>
+              );
+            })()}
+
+            {goals.monthlyWinRateTarget !== undefined && (() => {
+              const target = goals.monthlyWinRateTarget;
+              const progress = target > 0 ? monthProgress.winRate / target : 0;
+              const pct = Math.round(progress * 100);
+              return (
+                <ProgressRing
+                  value={progress}
+                  colorClass="text-blue-400"
+                  label="Win Rate"
+                  hint={`Target: ${target}%`}
+                  aria-label={`${pct}% of monthly win-rate goal`}
+                >
+                  <span className="text-lg font-black font-mono text-blue-400">{pct}%</span>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {monthProgress.winRate.toFixed(1)}%
+                  </span>
+                </ProgressRing>
+              );
+            })()}
+
+            {goals.monthlyTradeCountTarget !== undefined && (() => {
+              const target = goals.monthlyTradeCountTarget;
+              const progress = target > 0 ? monthProgress.tradeCount / target : 0;
+              const pct = Math.round(progress * 100);
+              return (
+                <ProgressRing
+                  value={progress}
+                  colorClass="text-indigo-400"
+                  label="Trades"
+                  hint={`Target: ${target}`}
+                  aria-label={`${pct}% of monthly trade-count goal`}
+                >
+                  <span className="text-lg font-black font-mono text-indigo-400">{pct}%</span>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {monthProgress.tradeCount} / {target}
+                  </span>
+                </ProgressRing>
+              );
+            })()}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Set optional monthly targets (Net P&amp;L, Win Rate, Trade Count) in
+            Settings to see progress rings here. They give you a lightweight,
+            month-over-month accountability nudge.
+          </p>
+        )}
       </div>
 
       {/* Bento Grid Metrics Cards */}

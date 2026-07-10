@@ -9,7 +9,7 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { Trade, BrokerConfig } from '../types';
+import { Trade, BrokerConfig, UserGoals, EMPTY_GOALS } from '../types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -343,7 +343,72 @@ export const dbService = {
       await this.saveBroker(cloudBroker, userId);
     }
 
+    // Migrate goals if the guest set any locally.
+    const localGoals = getLocalGoals();
+    if (localGoals && Object.keys(localGoals).length > 0) {
+      await this.saveGoals(localGoals, userId);
+    }
+
     // Clear local storage trades to keep it clean
     localStorage.removeItem('tj_trades');
+    localStorage.removeItem('tj_goals');
+  },
+
+  // Realtime subscription for User Goals.
+  // Cloud mode: reads `users/{uid}` doc, extracts `goals` field.
+  // Guest mode: localStorage `tj_goals`, updates via `tj_goals_updated` event.
+  subscribeGoals(
+    userId: string | null,
+    onUpdate: (goals: UserGoals) => void,
+  ): () => void {
+    if (!userId) {
+      onUpdate(getLocalGoals());
+      const handler = () => onUpdate(getLocalGoals());
+      window.addEventListener('tj_goals_updated', handler);
+      return () => window.removeEventListener('tj_goals_updated', handler);
+    }
+
+    const userDocRef = doc(db, 'users', userId);
+    return onSnapshot(
+      userDocRef,
+      (snap) => {
+        const data = snap.data();
+        onUpdate((data?.goals as UserGoals | undefined) ?? EMPTY_GOALS);
+      },
+      (error) => {
+        console.error('Firestore goals subscription error:', error);
+        onUpdate(getLocalGoals());
+      },
+    );
+  },
+
+  // Save User Goals (upserts).
+  async saveGoals(goals: UserGoals, userId: string | null): Promise<void> {
+    if (!userId) {
+      setLocalGoals(goals);
+      window.dispatchEvent(new Event('tj_goals_updated'));
+      return;
+    }
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      await setDoc(userDocRef, { goals: cleanUndefined(goals) }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${userId}`);
+    }
   }
 };
+
+// --- Goals helpers (guest mode) ----------------------------------------------
+
+function getLocalGoals(): UserGoals {
+  try {
+    const raw = localStorage.getItem('tj_goals');
+    return raw ? (JSON.parse(raw) as UserGoals) : EMPTY_GOALS;
+  } catch {
+    return EMPTY_GOALS;
+  }
+}
+
+function setLocalGoals(goals: UserGoals) {
+  localStorage.setItem('tj_goals', JSON.stringify(goals));
+}

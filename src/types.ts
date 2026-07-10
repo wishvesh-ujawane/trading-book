@@ -51,3 +51,18 @@ export interface UserStats {
   averageLoss: number;
   profitFactor: number;
 }
+
+/**
+ * User-defined monthly trading goals. All fields optional so a user can
+ * enable individual targets without setting all three.
+ */
+export interface UserGoals {
+  /** Target Net P&L in INR for the current calendar month. */
+  monthlyNetProfitTarget?: number;
+  /** Target win-rate percentage (0-100) for the current calendar month. */
+  monthlyWinRateTarget?: number;
+  /** Target number of trades logged in the current calendar month. */
+  monthlyTradeCountTarget?: number;
+}
+
+export const EMPTY_GOALS: UserGoals = {};
