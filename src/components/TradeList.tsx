@@ -3,6 +3,7 @@ import { Trade, BrokerConfig } from '../types';
 import { dbService } from '../lib/dbService';
 import { summarizeTrade } from '../lib/aiCoach';
 import { AiCoachPanel } from './AiCoachPanel';
+import { Button, EmptyState } from './ui';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -20,7 +21,8 @@ import {
   Sparkles, 
   Image as ImageIcon,
   DollarSign,
-  Tag
+  Tag,
+  Plus
 } from 'lucide-react';
 
 interface TradeListProps {
@@ -30,9 +32,10 @@ interface TradeListProps {
   onEditTrade: (trade: Trade) => void;
   onDeleteSuccess?: () => void;
   onOpenSettings: () => void;
+  onNewTrade: () => void;
 }
 
-export default function TradeList({ userId, trades, brokers, onEditTrade, onDeleteSuccess, onOpenSettings }: TradeListProps) {
+export default function TradeList({ userId, trades, brokers, onEditTrade, onDeleteSuccess, onOpenSettings, onNewTrade }: TradeListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'LIVE' | 'DEMO'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'WIN' | 'LOSS' | 'BREAK_EVEN'>('ALL');
@@ -176,9 +179,28 @@ export default function TradeList({ userId, trades, brokers, onEditTrade, onDele
       {/* Mobile grid & Desktop table container */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
         {filteredAndSortedTrades.length === 0 ? (
-          <div className="text-center py-16 text-slate-500 text-sm">
-            No matching trade logs found. Create an entry to populate.
-          </div>
+          trades.length === 0 ? (
+            <EmptyState
+              icon={<BookOpen className="w-6 h-6" />}
+              title="Your ledger is empty"
+              description="Log your first trade to start tracking P&L, fees, and psychology. It takes about a minute."
+              action={
+                <Button
+                  onClick={onNewTrade}
+                  leadingIcon={<Plus className="w-4 h-4" />}
+                >
+                  Log your first trade
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              tone="slate"
+              icon={<Search className="w-6 h-6" />}
+              title="No trades match your filters"
+              description="Try widening your search, timeframe, or Win/Loss filter."
+            />
+          )
         ) : (
           <div className="overflow-x-auto">
             {/* Desktop Table View */}

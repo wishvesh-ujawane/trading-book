@@ -315,6 +315,7 @@ export default function App() {
                   goals={goals}
                   onEditGoals={() => setIsSettingsOpen(true)}
                   onOpenSettings={() => setIsSettingsOpen(true)}
+                  onNewTrade={() => { setTradeToEdit(null); setIsLoggingTrade(true); }}
                 />
               )}
 
@@ -336,6 +337,7 @@ export default function App() {
                     brokers={brokers}
                     onEditTrade={triggerEditTrade}
                     onOpenSettings={() => setIsSettingsOpen(true)}
+                    onNewTrade={() => { setTradeToEdit(null); setIsLoggingTrade(true); }}
                   />
                 </div>
               )}

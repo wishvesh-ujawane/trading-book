@@ -11,3 +11,4 @@ export { ToastProvider, useToast } from './Toast';
 export type { ToastTone } from './Toast';
 export { ConfirmDialogProvider, useConfirm } from './ConfirmDialog';
 export { ProgressRing } from './ProgressRing';
+export { EmptyState } from './EmptyState';

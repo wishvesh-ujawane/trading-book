@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { Trade } from '../types';
+import { Button, EmptyState } from './ui';
+import { LineChart, Plus } from 'lucide-react';
 import { 
   AreaChart, 
   Area, 
@@ -18,9 +20,10 @@ import {
 
 interface DashboardChartsProps {
   trades: Trade[];
+  onNewTrade?: () => void;
 }
 
-export default function DashboardCharts({ trades }: DashboardChartsProps) {
+export default function DashboardCharts({ trades, onNewTrade }: DashboardChartsProps) {
   // Process data for Cumulative Equity Curve
   const equityCurveData = useMemo(() => {
     // Sort trades from oldest to newest to compute cumulative P&L
@@ -144,8 +147,19 @@ export default function DashboardCharts({ trades }: DashboardChartsProps) {
 
   if (trades.length === 0) {
     return (
-      <div className="bg-slate-900/40 border border-slate-850 rounded-2xl p-12 text-center text-slate-500 text-sm">
-        Log trades to view visual analytics charts.
+      <div className="bg-slate-900/40 border border-slate-850 rounded-2xl">
+        <EmptyState
+          icon={<LineChart className="w-6 h-6" />}
+          title="Nothing to chart yet"
+          description="Charts appear once you've logged at least one trade — equity curve, win/loss mix, order-type breakdown, and Live vs Demo split."
+          action={
+            onNewTrade ? (
+              <Button onClick={onNewTrade} leadingIcon={<Plus className="w-4 h-4" />}>
+                Log a trade
+              </Button>
+            ) : undefined
+          }
+        />
       </div>
     );
   }

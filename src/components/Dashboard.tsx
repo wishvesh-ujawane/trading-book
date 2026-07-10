@@ -19,6 +19,7 @@ interface DashboardProps {
   goals: UserGoals;
   onEditGoals: () => void;
   onOpenSettings: () => void;
+  onNewTrade: () => void;
 }
 
 export default function Dashboard({ 
@@ -30,6 +31,7 @@ export default function Dashboard({
   goals,
   onEditGoals,
   onOpenSettings,
+  onNewTrade,
 }: DashboardProps) {
 
   // Filter trades based on timeframe & trade type
@@ -385,7 +387,7 @@ export default function Dashboard({
       {/* Render Charts inside Dashboard */}
       <div className="mt-8">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-3 pl-1">Performance Analytics Visualizations</span>
-        <DashboardCharts trades={filteredTrades} />
+        <DashboardCharts trades={filteredTrades} onNewTrade={onNewTrade} />
       </div>
 
       {/* Weekly AI Review */}
