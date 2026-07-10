@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrokerConfig } from '../types';
 import { dbService } from '../lib/dbService';
+import { useToast, useConfirm } from './ui';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Briefcase, 
@@ -22,6 +23,8 @@ interface BrokerSettingsProps {
 }
 
 export default function BrokerSettings({ userId, brokers, onClose }: BrokerSettingsProps) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -97,11 +100,22 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
   // Delete Broker
   const handleDelete = async (brokerId: string) => {
     if (brokerId.startsWith('default-')) {
-      alert("System default presets cannot be deleted. You can create your own custom broker setups!");
+      toast.warning(
+        'Default preset locked',
+        'System default presets cannot be deleted. Create your own custom broker setup instead.'
+      );
       return;
     }
-    if (window.confirm("Are you sure you want to delete this broker setup? This will not affect existing logs but will remove it from configuration.")) {
+    const ok = await confirm({
+      title: 'Delete broker setup?',
+      message:
+        'This removes the broker from your configuration. It will not affect trades you already logged with it.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (ok) {
       await dbService.deleteBroker(brokerId, userId);
+      toast.success('Broker deleted');
     }
   };
 
