@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
-import { BrokerConfig } from '../types';
+import { BrokerConfig, BrokerTax, Market, TaxMode } from '../types';
 import { dbService } from '../lib/dbService';
 import { useToast, useConfirm } from './ui';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Briefcase, 
-  Plus, 
-  Trash2, 
-  Edit3, 
-  Save, 
-  X, 
-  Info, 
-  IndianRupee, 
-  Percent, 
-  Receipt 
+import {
+  Briefcase,
+  Plus,
+  Trash2,
+  Edit3,
+  Save,
+  X,
+  Info,
+  IndianRupee,
+  Percent,
+  Receipt,
 } from 'lucide-react';
+
+const MARKETS: Market[] = ['EQUITY', 'FNO', 'COMMODITY', 'CURRENCY', 'CRYPTO'];
+const MARKET_SHORT: Record<Market, string> = {
+  EQUITY: 'EQ', FNO: 'F&O', COMMODITY: 'CDT', CURRENCY: 'CUR', CRYPTO: 'CRY',
+};
 
 interface BrokerSettingsProps {
   userId: string | null;
@@ -32,9 +37,11 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
   const [name, setName] = useState('');
   const [brokeragePerTrade, setBrokeragePerTrade] = useState('1.00');
   const [estimatedSlippagePercent, setEstimatedSlippagePercent] = useState('0.02');
-  const [customTaxes, setCustomTaxes] = useState<{ key: string; value: number }[]>([]);
+  const [customTaxes, setCustomTaxes] = useState<BrokerTax[]>([]);
   const [taxKey, setTaxKey] = useState('');
   const [taxValue, setTaxValue] = useState('');
+  const [taxMode, setTaxMode] = useState<TaxMode>('FLAT');
+  const [taxAppliesTo, setTaxAppliesTo] = useState<Market[]>([]);
 
   // Open Add Form
   const handleOpenAdd = () => {
@@ -46,6 +53,8 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
     setCustomTaxes([]);
     setTaxKey('');
     setTaxValue('');
+    setTaxMode('FLAT');
+    setTaxAppliesTo([]);
   };
 
   // Open Edit Form
@@ -58,17 +67,45 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
     setCustomTaxes(broker.customTaxes || []);
     setTaxKey('');
     setTaxValue('');
+    setTaxMode('FLAT');
+    setTaxAppliesTo([]);
   };
 
-  // Add Custom Tax / Fee Key-Value Pair
+  // Add Custom Tax / Fee row
   const handleAddTax = () => {
     if (!taxKey.trim() || !taxValue) return;
     const val = parseFloat(taxValue);
     if (isNaN(val)) return;
 
-    setCustomTaxes([...customTaxes, { key: taxKey.trim(), value: val }]);
+    const row: BrokerTax = {
+      key: taxKey.trim(),
+      value: val,
+      mode: taxMode,
+      appliesTo: taxAppliesTo.length > 0 ? taxAppliesTo : undefined,
+    };
+    setCustomTaxes([...customTaxes, row]);
     setTaxKey('');
     setTaxValue('');
+    setTaxMode('FLAT');
+    setTaxAppliesTo([]);
+  };
+
+  const toggleTaxMarket = (m: Market) => {
+    setTaxAppliesTo((prev) => prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]);
+  };
+
+  // Update mode / appliesTo on an existing row.
+  const updateTaxRow = (index: number, patch: Partial<BrokerTax>) => {
+    setCustomTaxes((prev) => prev.map((row, i) => i === index ? { ...row, ...patch } : row));
+  };
+
+  const toggleRowMarket = (index: number, m: Market) => {
+    setCustomTaxes((prev) => prev.map((row, i) => {
+      if (i !== index) return row;
+      const cur = row.appliesTo ?? [];
+      const next = cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m];
+      return { ...row, appliesTo: next.length > 0 ? next : undefined };
+    }));
   };
 
   // Remove Custom Tax
@@ -84,12 +121,21 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
     const bFee = parseFloat(brokeragePerTrade);
     const sFee = parseFloat(estimatedSlippagePercent);
 
+    // Preserve presetKey when editing a preset — the fee engine keys off it.
+    const existing = editingId ? brokers.find((b) => b.id === editingId) : undefined;
+
+    const newId = editingId
+      || (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? `${userId || 'guest'}-${(crypto as Crypto).randomUUID()}`
+        : `${userId || 'guest'}-${Date.now()}`);
+
     const updatedBroker: BrokerConfig = {
-      id: editingId || `${userId || 'guest'}-${Date.now()}`,
+      id: newId,
       name: name.trim(),
       brokeragePerTrade: isNaN(bFee) ? 0 : bFee,
       estimatedSlippagePercent: isNaN(sFee) ? 0 : sFee,
-      customTaxes
+      customTaxes,
+      presetKey: existing?.presetKey,
     };
 
     await dbService.saveBroker(updatedBroker, userId);
@@ -160,7 +206,9 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
 
           <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
             {brokers.map((broker) => {
-              const totalTaxes = (broker.customTaxes || []).reduce((acc, curr) => acc + curr.value, 0);
+              const rows = broker.customTaxes || [];
+              const flatTotal = rows.filter((r) => (r.mode ?? 'FLAT') === 'FLAT').reduce((a, r) => a + r.value, 0);
+              const percentRowCount = rows.filter((r) => r.mode === 'PERCENT_OF_TURNOVER').length;
               const isDefault = broker.id.startsWith('default-');
 
               return (
@@ -189,10 +237,16 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
                           <Percent className="w-3 h-3 text-slate-500" />
                           <span>Slippage: <strong className="text-slate-300">{broker.estimatedSlippagePercent}%</strong></span>
                         </div>
-                        {totalTaxes > 0 && (
+                        {rows.length > 0 && (
                           <div className="flex items-center gap-1 col-span-2 mt-1">
                             <Receipt className="w-3 h-3 text-slate-500" />
-                            <span>Other Taxes: <strong className="text-slate-300">₹{totalTaxes.toFixed(2)}</strong> ({broker.customTaxes.length} items)</span>
+                            <span>
+                              Fees:{' '}
+                              {flatTotal > 0 && <strong className="text-slate-300">₹{flatTotal.toFixed(2)}</strong>}
+                              {flatTotal > 0 && percentRowCount > 0 && <span className="text-slate-600"> + </span>}
+                              {percentRowCount > 0 && <strong className="text-slate-300">{percentRowCount}% row{percentRowCount === 1 ? '' : 's'}</strong>}
+                              <span className="text-slate-500"> ({rows.length} items)</span>
+                            </span>
                           </div>
                         )}
                       </div>
@@ -266,7 +320,7 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
                       Brokerage Fee (₹)
                       <span className="group relative text-slate-500 cursor-pointer">
                         <Info className="w-3 h-3" />
-                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-40 bg-slate-850 text-[10px] text-slate-300 p-2 rounded shadow-lg border border-slate-700 z-50">
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-40 bg-slate-800 text-[10px] text-slate-300 p-2 rounded shadow-lg border border-slate-700 z-50">
                           Flat commission fee applied to every trade.
                         </span>
                       </span>
@@ -287,7 +341,7 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
                       Est. Slippage (%)
                       <span className="group relative text-slate-500 cursor-pointer">
                         <Info className="w-3 h-3" />
-                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-40 bg-slate-850 text-[10px] text-slate-300 p-2 rounded shadow-lg border border-slate-700 z-50">
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-40 bg-slate-800 text-[10px] text-slate-300 p-2 rounded shadow-lg border border-slate-700 z-50">
                           Estimated loss due to bid-ask spread and latency.
                         </span>
                       </span>
@@ -304,55 +358,144 @@ export default function BrokerSettings({ userId, brokers, onClose }: BrokerSetti
                   </div>
                 </div>
 
-                {/* Key-Value Pair Taxes */}
+                {/* Custom taxes (mode + applies-to) */}
                 <div className="space-y-2">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">Additional Taxes & regulatory fees</label>
-                  
-                  {/* Tax Key-Value Lists */}
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Additional taxes & regulatory fees
+                  </label>
+
                   {customTaxes.length > 0 && (
-                    <div className="bg-slate-900 rounded-lg p-2.5 border border-slate-800 space-y-1.5">
-                      {customTaxes.map((tax, index) => (
-                        <div key={index} className="flex justify-between items-center text-xs font-mono bg-slate-950 px-2 py-1 rounded">
-                          <span className="text-slate-400">{tax.key}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-emerald-400 font-bold">₹{tax.value.toFixed(2)}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveTax(index)}
-                              className="text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
+                    <div className="bg-slate-900 rounded-lg p-2 border border-slate-800 space-y-2">
+                      {customTaxes.map((tax, index) => {
+                        const mode: TaxMode = tax.mode ?? 'FLAT';
+                        const applies = tax.appliesTo ?? [];
+                        return (
+                          <div key={index} className="bg-slate-950 border border-slate-800 rounded-lg p-2 space-y-1.5">
+                            <div className="flex justify-between items-center gap-2">
+                              <span className="text-xs font-mono text-slate-300 truncate">{tax.key}</span>
+                              <span className="text-xs font-mono font-bold text-emerald-400">
+                                {mode === 'PERCENT_OF_TURNOVER' ? `${tax.value}%` : `₹${tax.value.toFixed(2)}`}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTax(index)}
+                                className="text-slate-500 hover:text-rose-400 transition-colors cursor-pointer p-1 -mr-1"
+                                aria-label="Remove tax row"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mr-1">Mode</span>
+                              <button
+                                type="button"
+                                onClick={() => updateTaxRow(index, { mode: 'FLAT' })}
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                  mode === 'FLAT'
+                                    ? 'bg-indigo-500/20 border-indigo-500/60 text-indigo-300'
+                                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                                }`}
+                              >Flat ₹</button>
+                              <button
+                                type="button"
+                                onClick={() => updateTaxRow(index, { mode: 'PERCENT_OF_TURNOVER' })}
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                  mode === 'PERCENT_OF_TURNOVER'
+                                    ? 'bg-indigo-500/20 border-indigo-500/60 text-indigo-300'
+                                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                                }`}
+                              >% of turnover</button>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mr-1">Applies to</span>
+                              {MARKETS.map((m) => (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => toggleRowMarket(index, m)}
+                                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                    applies.includes(m)
+                                      ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+                                      : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
+                                  }`}
+                                >{MARKET_SHORT[m]}</button>
+                              ))}
+                              {applies.length === 0 && (
+                                <span className="text-[9px] text-slate-600 italic">All markets</span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
-                  {/* Add Key-Value Inputs */}
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Regulatory tax / GST"
-                      value={taxKey}
-                      onChange={(e) => setTaxKey(e.target.value)}
-                      className="flex-1 bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white focus:outline-none"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Amount ₹"
-                      value={taxValue}
-                      onChange={(e) => setTaxValue(e.target.value)}
-                      className="w-20 bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2 text-xs text-white focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddTax}
-                      className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 p-1.5 rounded-lg border border-indigo-500/20 transition-colors cursor-pointer flex items-center justify-center"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+                  {/* Add new row builder */}
+                  <div className="space-y-1.5 bg-slate-900/60 border border-slate-800/60 rounded-lg p-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. STT / GST / Stamp"
+                        value={taxKey}
+                        onChange={(e) => setTaxKey(e.target.value)}
+                        className="flex-1 bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white focus:outline-none"
+                      />
+                      <input
+                        type="number"
+                        step="0.001"
+                        placeholder={taxMode === 'PERCENT_OF_TURNOVER' ? '%' : '₹'}
+                        value={taxValue}
+                        onChange={(e) => setTaxValue(e.target.value)}
+                        className="w-20 bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2 text-xs text-white focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTax}
+                        className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 p-1.5 rounded-lg border border-indigo-500/20 transition-colors cursor-pointer flex items-center justify-center"
+                        aria-label="Add tax row"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mr-1">Mode</span>
+                      <button
+                        type="button"
+                        onClick={() => setTaxMode('FLAT')}
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                          taxMode === 'FLAT'
+                            ? 'bg-indigo-500/20 border-indigo-500/60 text-indigo-300'
+                            : 'bg-slate-950 border-slate-800 text-slate-400'
+                        }`}
+                      >Flat ₹</button>
+                      <button
+                        type="button"
+                        onClick={() => setTaxMode('PERCENT_OF_TURNOVER')}
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                          taxMode === 'PERCENT_OF_TURNOVER'
+                            ? 'bg-indigo-500/20 border-indigo-500/60 text-indigo-300'
+                            : 'bg-slate-950 border-slate-800 text-slate-400'
+                        }`}
+                      >% of turnover</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mr-1">Applies to</span>
+                      {MARKETS.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => toggleTaxMarket(m)}
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                            taxAppliesTo.includes(m)
+                              ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+                              : 'bg-slate-950 border-slate-800 text-slate-500'
+                          }`}
+                        >{MARKET_SHORT[m]}</button>
+                      ))}
+                      {taxAppliesTo.length === 0 && (
+                        <span className="text-[9px] text-slate-600 italic">All markets</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

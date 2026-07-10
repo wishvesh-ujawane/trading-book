@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { BarChart3, BookOpen, Briefcase, Plus } from 'lucide-react';
+import { BarChart3, BookOpen, Briefcase, Plus, Sparkles } from 'lucide-react';
 
-type TabKey = 'DASHBOARD' | 'TRADES_LOG' | 'BROKER_SETTINGS';
+type TabKey = 'DASHBOARD' | 'TRADES_LOG' | 'BROKER_SETTINGS' | 'STRATEGIES';
 
 interface BottomTabBarProps {
   activeTab: TabKey;
@@ -19,12 +19,13 @@ interface TabDef {
 const TABS: TabDef[] = [
   { key: 'DASHBOARD', label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" /> },
   { key: 'TRADES_LOG', label: 'Journal', icon: <BookOpen className="w-5 h-5" /> },
+  { key: 'STRATEGIES', label: 'Strategies', icon: <Sparkles className="w-5 h-5" /> },
   { key: 'BROKER_SETTINGS', label: 'Brokers', icon: <Briefcase className="w-5 h-5" /> },
 ];
 
 /**
  * Fixed bottom navigation bar shown only below the `md` breakpoint. Includes
- * the three top-level tabs and a raised "+" quick-add button in the middle.
+ * the four top-level tabs and a raised "+" quick-add button in the middle.
  *
  * Respects iOS safe-area insets via the `pb-[env(safe-area-inset-bottom)]`
  * utility, so the raised button sits above the home-indicator on notched
@@ -36,8 +37,7 @@ export function BottomTabBar({
   onSelectTab,
   onNewTrade,
 }: BottomTabBarProps) {
-  const [left, right] = [TABS[0], TABS[1]];
-  const trailing = TABS[2];
+  const [t0, t1, t2, t3] = TABS;
 
   return (
     <nav
@@ -49,14 +49,14 @@ export function BottomTabBar({
       >
         <div className="relative grid grid-cols-5 items-end px-2 pt-2 pb-1">
           <TabButton
-            tab={left}
-            active={activeTab === left.key && !isLoggingTrade}
-            onClick={() => onSelectTab(left.key)}
+            tab={t0}
+            active={activeTab === t0.key && !isLoggingTrade}
+            onClick={() => onSelectTab(t0.key)}
           />
           <TabButton
-            tab={right}
-            active={activeTab === right.key && !isLoggingTrade}
-            onClick={() => onSelectTab(right.key)}
+            tab={t1}
+            active={activeTab === t1.key && !isLoggingTrade}
+            onClick={() => onSelectTab(t1.key)}
           />
 
           {/* Raised quick-add button (middle column). */}
@@ -72,12 +72,15 @@ export function BottomTabBar({
           </div>
 
           <TabButton
-            tab={trailing}
-            active={activeTab === trailing.key && !isLoggingTrade}
-            onClick={() => onSelectTab(trailing.key)}
+            tab={t2}
+            active={activeTab === t2.key && !isLoggingTrade}
+            onClick={() => onSelectTab(t2.key)}
           />
-          {/* Spacer to keep the "+" button centered — the 5th column. */}
-          <span aria-hidden="true" />
+          <TabButton
+            tab={t3}
+            active={activeTab === t3.key && !isLoggingTrade}
+            onClick={() => onSelectTab(t3.key)}
+          />
         </div>
       </div>
     </nav>

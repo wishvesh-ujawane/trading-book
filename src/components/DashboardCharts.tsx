@@ -147,7 +147,7 @@ export default function DashboardCharts({ trades, onNewTrade }: DashboardChartsP
 
   if (trades.length === 0) {
     return (
-      <div className="bg-slate-900/40 border border-slate-850 rounded-2xl">
+      <div className="bg-slate-900/40 border border-slate-800 rounded-2xl">
         <EmptyState
           icon={<LineChart className="w-6 h-6" />}
           title="Nothing to chart yet"
@@ -248,7 +248,7 @@ export default function DashboardCharts({ trades, onNewTrade }: DashboardChartsP
             <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Logged</span>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-1.5 mt-4 pt-4 border-t border-slate-850 text-center">
+        <div className="grid grid-cols-3 gap-1.5 mt-4 pt-4 border-t border-slate-800 text-center">
           {['Wins', 'Losses', 'Break Evens'].map((label) => {
             const count = trades.filter(t => 
               label === 'Wins' ? t.status === 'WIN' : 
@@ -307,7 +307,7 @@ export default function DashboardCharts({ trades, onNewTrade }: DashboardChartsP
             const rate = count > 0 ? Math.round((winCount / count) * 100) : 0;
             
             return (
-              <div key={item.name} className="p-4 rounded-xl bg-slate-950/50 border border-slate-850/80">
+              <div key={item.name} className="p-4 rounded-xl bg-slate-950/50 border border-slate-800/80">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{item.name} Trading</span>
                 <div className={`text-xl font-extrabold mt-1 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {isPositive ? '+' : ''}₹{item.Pnl.toLocaleString('en-IN')}

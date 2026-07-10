@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { dbService } from './lib/dbService';
-import { Trade, BrokerConfig, UserGoals, EMPTY_GOALS } from './types';
+import { Trade, BrokerConfig, Strategy, UserGoals, EMPTY_GOALS } from './types';
 import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import TradeForm from './components/TradeForm';
 import TradeList from './components/TradeList';
 import BrokerSettings from './components/BrokerSettings';
 import Settings from './components/Settings';
+import StrategyManager from './components/StrategyManager';
 import { BottomTabBar } from './components/BottomTabBar';
 import { Button, IconButton, TabPill, TabPillGroup } from './components/ui';
 import { motion, AnimatePresence } from 'motion/react';
@@ -24,7 +25,8 @@ import {
   RefreshCw,
   Settings as SettingsIcon,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 
 export default function App() {
@@ -35,10 +37,11 @@ export default function App() {
   // Core collections state
   const [trades, setTrades] = useState<Trade[]>([]);
   const [brokers, setBrokers] = useState<BrokerConfig[]>([]);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [goals, setGoals] = useState<UserGoals>(EMPTY_GOALS);
 
   // Navigation & Form control
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'TRADES_LOG' | 'BROKER_SETTINGS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'TRADES_LOG' | 'BROKER_SETTINGS' | 'STRATEGIES'>('DASHBOARD');
   const [isLoggingTrade, setIsLoggingTrade] = useState(false);
   const [tradeToEdit, setTradeToEdit] = useState<Trade | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -84,10 +87,16 @@ export default function App() {
       setGoals(updatedGoals);
     });
 
+    // Subscription for Strategies
+    const unsubscribeStrategies = dbService.subscribeStrategies(userId, (updatedStrategies) => {
+      setStrategies(updatedStrategies);
+    });
+
     return () => {
       unsubscribeTrades();
       unsubscribeBrokers();
       unsubscribeGoals();
+      unsubscribeStrategies();
     };
   }, [userId]);
 
@@ -190,6 +199,13 @@ export default function App() {
                   Journal Log
                 </TabPill>
                 <TabPill
+                  active={activeTab === 'STRATEGIES' && !isLoggingTrade}
+                  onClick={() => { setActiveTab('STRATEGIES'); setIsLoggingTrade(false); }}
+                  leadingIcon={<Sparkles className="w-3.5 h-3.5" />}
+                >
+                  Strategies
+                </TabPill>
+                <TabPill
                   active={activeTab === 'BROKER_SETTINGS' && !isLoggingTrade}
                   onClick={() => { setActiveTab('BROKER_SETTINGS'); setIsLoggingTrade(false); }}
                   leadingIcon={<Briefcase className="w-3.5 h-3.5" />}
@@ -283,6 +299,7 @@ export default function App() {
               <TradeForm
                 userId={userId}
                 brokers={brokers}
+                strategies={strategies}
                 tradeToEdit={tradeToEdit}
                 onSuccess={() => {
                   setIsLoggingTrade(false);
@@ -308,6 +325,8 @@ export default function App() {
               {activeTab === 'DASHBOARD' && (
                 <Dashboard
                   trades={trades}
+                  strategies={strategies}
+                  brokers={brokers}
                   timeframe={timeframe}
                   onTimeframeChange={setTimeframe}
                   tradeTypeFilter={tradeTypeFilter}
@@ -335,6 +354,7 @@ export default function App() {
                     userId={userId}
                     trades={trades}
                     brokers={brokers}
+                    strategies={strategies}
                     onEditTrade={triggerEditTrade}
                     onOpenSettings={() => setIsSettingsOpen(true)}
                     onNewTrade={() => { setTradeToEdit(null); setIsLoggingTrade(true); }}
@@ -347,6 +367,14 @@ export default function App() {
                 <BrokerSettings
                   userId={userId}
                   brokers={brokers}
+                />
+              )}
+
+              {/* Strategies Library Tab */}
+              {activeTab === 'STRATEGIES' && (
+                <StrategyManager
+                  userId={userId}
+                  strategies={strategies}
                 />
               )}
 

@@ -61,6 +61,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       let errMsg = "An unexpected error occurred.";
       if (err.code === "auth/operation-not-allowed") {
         errMsg = "Email/Password sign-in is not enabled in the Firebase Console. Please use Google Sign-In or enable 'Email/Password' under Sign-in providers in your Firebase project Auth settings.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        errMsg = `This domain (${window.location.hostname}) is not authorized for Firebase Auth. Add it under Firebase Console → Authentication → Settings → Authorized domains.`;
       } else if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
         errMsg = "Invalid email or password.";
       } else if (err.code === "auth/email-already-in-use") {
@@ -94,6 +96,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       let errMsg = "An unexpected error occurred during Google Sign-In.";
       if (err.code === "auth/operation-not-allowed") {
         errMsg = "Google Sign-In is not enabled. Please enable Google Sign-In provider in the Firebase Console.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        errMsg = `This domain (${window.location.hostname}) is not authorized for Firebase Auth. Add it under Firebase Console → Authentication → Settings → Authorized domains.`;
       } else if (err.code === "auth/popup-closed-by-user") {
         errMsg = "Sign-in popup was closed before completing.";
       } else if (err.code === "auth/cancelled-popup-request") {

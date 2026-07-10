@@ -9,7 +9,7 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { Trade, BrokerConfig, UserGoals, EMPTY_GOALS } from '../types';
+import { Trade, BrokerConfig, Strategy, UserGoals, EMPTY_GOALS } from '../types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -58,47 +58,77 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Default presets for brokers to give beginners an instant setup
+// Default presets for brokers to give beginners an instant setup.
+// STT and stamp duty are stored as PERCENT_OF_TURNOVER so they scale with
+// trade size — the old flat-₹ rows silently under- or over-charged. GST and
+// exchange charges stay flat approximations (they depend on brokerage which
+// varies).
 export const DEFAULT_BROKERS: BrokerConfig[] = [
   {
-    id: 'default-zerodha',
-    name: 'Zerodha (Kite)',
+    id: 'default-dhan',
+    name: 'Dhan',
+    presetKey: 'dhan',
     brokeragePerTrade: 20.00,
     estimatedSlippagePercent: 0.02,
     customTaxes: [
-      { key: 'GST & Exchange Charges', value: 4.50 },
-      { key: 'STT & Stamp Duty', value: 9.50 }
-    ]
+      { key: 'STT (equity delivery)', value: 0.1, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['EQUITY'] },
+      { key: 'STT (options, sell side)', value: 0.0625, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['FNO'] },
+      { key: 'Exchange transaction (~)', value: 0.0035, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['FNO'] },
+      { key: 'GST (~18% on brokerage)', value: 7.20, mode: 'FLAT' },
+      { key: 'Stamp duty (buy side, ~0.003%)', value: 0.003, mode: 'PERCENT_OF_TURNOVER' },
+    ],
+  },
+  {
+    id: 'default-zerodha',
+    name: 'Zerodha (Kite)',
+    presetKey: 'zerodha',
+    brokeragePerTrade: 20.00,
+    estimatedSlippagePercent: 0.02,
+    customTaxes: [
+      { key: 'STT (equity delivery)', value: 0.1, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['EQUITY'] },
+      { key: 'STT (options, sell side)', value: 0.0625, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['FNO'] },
+      { key: 'GST (~18% on brokerage)', value: 7.20, mode: 'FLAT' },
+      { key: 'Stamp duty (~0.003%)', value: 0.003, mode: 'PERCENT_OF_TURNOVER' },
+    ],
   },
   {
     id: 'default-groww',
     name: 'Groww',
+    presetKey: 'groww',
     brokeragePerTrade: 20.00,
     estimatedSlippagePercent: 0.03,
     customTaxes: [
-      { key: 'GST & Exchange Charges', value: 4.50 },
-      { key: 'STT & Stamp Duty', value: 9.50 }
-    ]
+      { key: 'STT (equity delivery)', value: 0.1, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['EQUITY'] },
+      { key: 'STT (options, sell side)', value: 0.0625, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['FNO'] },
+      { key: 'GST (~18% on brokerage)', value: 7.20, mode: 'FLAT' },
+      { key: 'Stamp duty (~0.003%)', value: 0.003, mode: 'PERCENT_OF_TURNOVER' },
+    ],
   },
   {
     id: 'default-angelone',
     name: 'Angel One',
+    presetKey: 'angelone',
     brokeragePerTrade: 20.00,
     estimatedSlippagePercent: 0.02,
     customTaxes: [
-      { key: 'GST & Exchange Charges', value: 4.50 },
-      { key: 'STT & Stamp Duty', value: 9.50 }
-    ]
+      { key: 'STT (equity delivery)', value: 0.1, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['EQUITY'] },
+      { key: 'STT (options, sell side)', value: 0.0625, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['FNO'] },
+      { key: 'GST (~18% on brokerage)', value: 7.20, mode: 'FLAT' },
+      { key: 'Stamp duty (~0.003%)', value: 0.003, mode: 'PERCENT_OF_TURNOVER' },
+    ],
   },
   {
     id: 'default-upstox',
     name: 'Upstox',
+    presetKey: 'upstox',
     brokeragePerTrade: 20.00,
     estimatedSlippagePercent: 0.02,
     customTaxes: [
-      { key: 'GST & Exchange Charges', value: 4.50 },
-      { key: 'STT & Stamp Duty', value: 9.50 }
-    ]
+      { key: 'STT (equity delivery)', value: 0.1, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['EQUITY'] },
+      { key: 'STT (options, sell side)', value: 0.0625, mode: 'PERCENT_OF_TURNOVER', appliesTo: ['FNO'] },
+      { key: 'GST (~18% on brokerage)', value: 7.20, mode: 'FLAT' },
+      { key: 'Stamp duty (~0.003%)', value: 0.003, mode: 'PERCENT_OF_TURNOVER' },
+    ],
   },
   {
     id: 'default-manual',
@@ -122,24 +152,151 @@ const cleanUndefined = <T extends Record<string, any>>(obj: T): T => {
   return result as T;
 };
 
+// -------------------------------------------------------------------------
+// Guest-mode localStorage namespacing.
+// Each browser gets a persistent random guest id so that a shared machine
+// doesn't leak trades between guest sessions. Legacy unscoped keys are
+// migrated once on first access.
+// -------------------------------------------------------------------------
+const GUEST_ID_KEY = 'tj_guestId';
+const LEGACY_KEYS = ['tj_trades', 'tj_brokers', 'tj_strategies', 'tj_goals'];
+
+function getOrCreateGuestId(): string {
+  let id: string | null = null;
+  try { id = localStorage.getItem(GUEST_ID_KEY); } catch { return 'default'; }
+  if (id) return id;
+  id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+    ? (crypto as Crypto).randomUUID()
+    : `guest-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  try {
+    localStorage.setItem(GUEST_ID_KEY, id);
+    // Migrate any pre-existing unscoped keys into the new guest namespace.
+    LEGACY_KEYS.forEach((k) => {
+      const v = localStorage.getItem(k);
+      if (v !== null && localStorage.getItem(`${k}:${id}`) === null) {
+        localStorage.setItem(`${k}:${id}`, v);
+        localStorage.removeItem(k);
+      }
+    });
+  } catch { /* ignore quota / private mode errors */ }
+  return id;
+}
+
+/** Namespaced localStorage key for a guest scope. Idempotent per browser. */
+function guestKey(base: string): string {
+  return `${base}:${getOrCreateGuestId()}`;
+}
+
 // Helper to save trades to LocalStorage for Guest mode
 const getLocalTrades = (): Trade[] => {
-  const data = localStorage.getItem('tj_trades');
+  const data = localStorage.getItem(guestKey('tj_trades'));
   return data ? JSON.parse(data) : [];
 };
 
 const setLocalTrades = (trades: Trade[]) => {
-  localStorage.setItem('tj_trades', JSON.stringify(trades));
+  localStorage.setItem(guestKey('tj_trades'), JSON.stringify(trades));
 };
 
 const getLocalBrokers = (): BrokerConfig[] => {
-  const data = localStorage.getItem('tj_brokers');
+  const data = localStorage.getItem(guestKey('tj_brokers'));
   return data ? JSON.parse(data) : DEFAULT_BROKERS;
 };
 
 const setLocalBrokers = (brokers: BrokerConfig[]) => {
-  localStorage.setItem('tj_brokers', JSON.stringify(brokers));
+  localStorage.setItem(guestKey('tj_brokers'), JSON.stringify(brokers));
 };
+
+// --- Strategy helpers (guest mode) ------------------------------------------
+
+/**
+ * Seed strategies shown to a brand-new user so the picker isn't empty.
+ * Named without any userId — the caller assigns it before persisting.
+ */
+export const SEED_STRATEGIES: Omit<Strategy, 'id' | 'userId' | 'createdAt' | 'updatedAt'>[] = [
+  {
+    name: 'Opening Range Breakout (15m)',
+    description: 'Fade / follow the 15-min opening range on index F&O or high-beta equity.',
+    markets: ['EQUITY', 'FNO'],
+    defaultChartTimeframe: '15m',
+    defaultHoldingStyle: 'INTRADAY',
+    checklist: [
+      'Marked the 09:15–09:30 range on the chart',
+      'Confirmed a decisive break with volume',
+      'Stop loss placed on the opposite side of the range',
+      'Risk ≤ 1 % of capital',
+    ],
+    rules: {
+      entry: ['Price closes 15m candle beyond the opening range', 'Volume above 20-bar average'],
+      exit: ['Exit at 1.5R', 'Trail SL to breakeven after 1R', 'Full exit by 14:30'],
+      risk: ['Max 2 trades a day on this setup', 'Skip if opening range > 1 %'],
+    },
+    tags: ['ORB', 'Momentum'],
+    color: 'indigo',
+  },
+  {
+    name: 'Support / Resistance Bounce (1h)',
+    description: 'Rejection candle at pre-marked HTF support or resistance level.',
+    markets: ['EQUITY', 'FNO'],
+    defaultChartTimeframe: '1h',
+    defaultHoldingStyle: 'SWING',
+    checklist: [
+      'Level marked before market open',
+      'Rejection wick / engulfing at level',
+      'Higher-timeframe trend agrees with the trade',
+    ],
+    rules: {
+      entry: ['Close beyond rejection candle high/low', 'RSI diverging from price'],
+      exit: ['First target: next S/R', 'Second target: 2R'],
+      risk: ['No pyramiding', 'Skip on major-event days'],
+    },
+    tags: ['S/R', 'Reversal'],
+    color: 'emerald',
+  },
+  {
+    name: 'Nifty Option Buying — Trend Continuation (5m)',
+    description: 'Buy CE / PE on pullback to 20-EMA in the direction of the 15-min trend.',
+    markets: ['FNO'],
+    defaultChartTimeframe: '5m',
+    defaultHoldingStyle: 'INTRADAY',
+    checklist: [
+      '15-min trend is clearly one-directional',
+      'Pullback to 20-EMA on 5-min chart',
+      'ATM or ITM option — avoid deep OTM',
+      'Time decay awareness (avoid last 30 min)',
+    ],
+    rules: {
+      entry: ['5-min close back through 20-EMA in trend direction'],
+      exit: ['Target 30 % move on premium', 'SL 15 % of premium'],
+      risk: ['Max 2 % capital per trade', 'Stop for the day after 2 consecutive losers'],
+    },
+    tags: ['Options', 'Trend'],
+    color: 'blue',
+  },
+];
+
+const getLocalStrategies = (): Strategy[] => {
+  try {
+    const data = localStorage.getItem(guestKey('tj_strategies'));
+    return data ? (JSON.parse(data) as Strategy[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const setLocalStrategies = (strategies: Strategy[]) => {
+  localStorage.setItem(guestKey('tj_strategies'), JSON.stringify(strategies));
+};
+
+function makeSeededStrategies(userId: string): Strategy[] {
+  const now = Date.now();
+  return SEED_STRATEGIES.map((s, i) => ({
+    ...s,
+    id: `${userId}-seed-${i}`,
+    userId,
+    createdAt: now,
+    updatedAt: now,
+  }));
+}
 
 export const dbService = {
   // Realtime subscription for Trades
@@ -349,9 +506,16 @@ export const dbService = {
       await this.saveGoals(localGoals, userId);
     }
 
+    // Migrate any custom strategies (skip guest-seed defaults).
+    const localStrategies = getLocalStrategies().filter((s) => !s.id.startsWith('guest-seed-'));
+    for (const s of localStrategies) {
+      await this.saveStrategy({ ...s, userId, id: `${userId}-${s.id}` }, userId);
+    }
+
     // Clear local storage trades to keep it clean
-    localStorage.removeItem('tj_trades');
-    localStorage.removeItem('tj_goals');
+    localStorage.removeItem(guestKey('tj_trades'));
+    localStorage.removeItem(guestKey('tj_goals'));
+    localStorage.removeItem(guestKey('tj_strategies'));
   },
 
   // Realtime subscription for User Goals.
@@ -395,14 +559,101 @@ export const dbService = {
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${userId}`);
     }
-  }
+  },
+
+  // --- Strategies ---------------------------------------------------------
+
+  /**
+   * Realtime strategy subscription. Seeds three beginner templates on first
+   * read for a new user (both cloud and guest modes) so the picker isn't
+   * empty on day 1.
+   */
+  subscribeStrategies(
+    userId: string | null,
+    onUpdate: (strategies: Strategy[]) => void,
+  ): () => void {
+    if (!userId) {
+      // Guest mode
+      let local = getLocalStrategies();
+      if (local.length === 0) {
+        local = makeSeededStrategies('guest');
+        setLocalStrategies(local);
+      }
+      onUpdate(local);
+      const handler = () => onUpdate(getLocalStrategies());
+      window.addEventListener('tj_strategies_updated', handler);
+      return () => window.removeEventListener('tj_strategies_updated', handler);
+    }
+
+    // Cloud mode
+    const strategiesRef = collection(db, 'strategies');
+    const q = query(strategiesRef, where('userId', '==', userId));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        if (snapshot.empty) {
+          // Seed 3 beginner strategies on first read.
+          const seeded = makeSeededStrategies(userId);
+          seeded.forEach(async (s) => {
+            try {
+              await setDoc(doc(db, 'strategies', s.id), cleanUndefined(s));
+            } catch (err) {
+              console.error('Failed to seed strategy', s.name, err);
+            }
+          });
+          onUpdate(seeded);
+          return;
+        }
+        const items: Strategy[] = [];
+        snapshot.forEach((d) => items.push({ id: d.id, ...(d.data() as Omit<Strategy, 'id'>) }));
+        items.sort((a, b) => a.name.localeCompare(b.name));
+        onUpdate(items);
+      },
+      (error) => {
+        console.error('Firestore strategies subscription error:', error);
+        onUpdate(getLocalStrategies());
+      },
+    );
+  },
+
+  async saveStrategy(strategy: Strategy, userId: string | null): Promise<void> {
+    const next: Strategy = { ...strategy, updatedAt: Date.now() };
+    if (!userId) {
+      const items = getLocalStrategies();
+      const idx = items.findIndex((s) => s.id === next.id);
+      if (idx >= 0) items[idx] = next;
+      else items.unshift(next);
+      setLocalStrategies(items);
+      window.dispatchEvent(new Event('tj_strategies_updated'));
+      return;
+    }
+    try {
+      await setDoc(doc(db, 'strategies', next.id), cleanUndefined({ ...next, userId }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `strategies/${next.id}`);
+    }
+  },
+
+  async deleteStrategy(strategyId: string, userId: string | null): Promise<void> {
+    if (!userId) {
+      const items = getLocalStrategies().filter((s) => s.id !== strategyId);
+      setLocalStrategies(items);
+      window.dispatchEvent(new Event('tj_strategies_updated'));
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'strategies', strategyId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `strategies/${strategyId}`);
+    }
+  },
 };
 
 // --- Goals helpers (guest mode) ----------------------------------------------
 
 function getLocalGoals(): UserGoals {
   try {
-    const raw = localStorage.getItem('tj_goals');
+    const raw = localStorage.getItem(guestKey('tj_goals'));
     return raw ? (JSON.parse(raw) as UserGoals) : EMPTY_GOALS;
   } catch {
     return EMPTY_GOALS;
@@ -410,5 +661,5 @@ function getLocalGoals(): UserGoals {
 }
 
 function setLocalGoals(goals: UserGoals) {
-  localStorage.setItem('tj_goals', JSON.stringify(goals));
+  localStorage.setItem(guestKey('tj_goals'), JSON.stringify(goals));
 }
