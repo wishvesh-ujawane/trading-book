@@ -49,8 +49,11 @@ Get a key at https://aistudio.google.com/apikey.
 
 ## Firebase project note
 
-This repo currently ships with a Firebase project (`zinc-ego-977bw`) that was
-auto-provisioned by Google AI Studio when the app was scaffolded. That project
-may be shared with other AI Studio users of the same template. For a real
-deployment with real users' data, create your own Firebase project, update
-`.env.local`, and redeploy [`firestore.rules`](firestore.rules).
+This repo is wired to the Firebase project `trading-book-36d99` (see
+[`firebase-applet-config.json`](firebase-applet-config.json) and `.env.local`).
+It was migrated on 2026-07-10 from the original AI Studio auto-provisioned
+project (`zinc-ego-977bw`), which was shared across AI Studio template users.
+
+To point the app at a different Firebase project, update the `VITE_FIREBASE_*`
+values in `.env.local`, mirror them in `firebase-applet-config.json`, and
+deploy [`firestore.rules`](firestore.rules) to that project.
