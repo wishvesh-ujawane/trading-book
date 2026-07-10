@@ -114,13 +114,15 @@ export default function TradeList({ userId, trades, brokers, onEditTrade, onDele
       <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-2xl backdrop-blur-md shadow-lg grid sm:grid-cols-12 gap-3 items-center">
         {/* Search */}
         <div className="sm:col-span-4 relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <label htmlFor="trade-search" className="sr-only">Search trades by symbol</label>
+          <Search aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
-            type="text"
+            id="trade-search"
+            type="search"
             placeholder="Search symbol (e.g., RELIANCE or NIFTY)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2 pl-10 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2 pl-10 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           />
         </div>
 
@@ -171,7 +173,7 @@ export default function TradeList({ userId, trades, brokers, onEditTrade, onDele
 
       {/* Trades Counter */}
       <div className="flex justify-between items-center px-1">
-        <span className="text-xs text-slate-400 font-mono">
+        <span aria-live="polite" className="text-xs text-slate-400 font-mono">
           Showing <strong className="text-white">{filteredAndSortedTrades.length}</strong> of <strong className="text-white">{trades.length}</strong> total trade logs
         </span>
       </div>
@@ -321,24 +323,31 @@ export default function TradeList({ userId, trades, brokers, onEditTrade, onDele
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <button
+                              type="button"
                               onClick={() => onEditTrade(trade)}
-                              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                              aria-label={`Edit trade ${trade.symbol} on ${trade.date}`}
+                              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                               title="Edit Trade Logs"
                             >
-                              <Edit className="w-3.5 h-3.5" />
+                              <Edit aria-hidden="true" className="w-3.5 h-3.5" />
                             </button>
                             <button
+                              type="button"
                               onClick={(e) => handleDeleteTrade(trade, e)}
-                              className="p-1.5 hover:bg-slate-800/80 text-slate-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                              aria-label={`Delete trade ${trade.symbol} on ${trade.date}`}
+                              className="p-1.5 hover:bg-slate-800/80 text-slate-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                               title="Delete Trade"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 aria-hidden="true" className="w-3.5 h-3.5" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => toggleExpand(trade.id)}
-                              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                              aria-label={isExpanded ? 'Collapse trade details' : 'Expand trade details'}
+                              aria-expanded={isExpanded}
+                              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                             >
-                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              {isExpanded ? <ChevronUp aria-hidden="true" className="w-3.5 h-3.5" /> : <ChevronDown aria-hidden="true" className="w-3.5 h-3.5" />}
                             </button>
                           </div>
                         </td>
@@ -561,16 +570,20 @@ export default function TradeList({ userId, trades, brokers, onEditTrade, onDele
 
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <button
+                          type="button"
                           onClick={() => onEditTrade(trade)}
-                          className="p-1 hover:bg-slate-850 rounded text-slate-400 hover:text-white"
+                          aria-label={`Edit trade ${trade.symbol} on ${trade.date}`}
+                          className="p-1 hover:bg-slate-850 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
-                          <Edit className="w-3.5 h-3.5" />
+                          <Edit aria-hidden="true" className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => handleDeleteTrade(trade, e)}
-                          className="p-1 hover:bg-slate-850 rounded text-slate-500 hover:text-rose-400"
+                          aria-label={`Delete trade ${trade.symbol} on ${trade.date}`}
+                          className="p-1 hover:bg-slate-850 rounded text-slate-500 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 aria-hidden="true" className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>

@@ -55,6 +55,7 @@ export function TabPill({
       type="button"
       role="tab"
       aria-selected={active}
+      aria-current={active ? 'page' : undefined}
       aria-label={ariaLabel}
       onClick={onClick}
       className={[
