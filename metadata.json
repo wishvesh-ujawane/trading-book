@@ -1,0 +1,6 @@
+{
+  "name": "Trading Journal",
+  "description": "An intuitive trading journaling app customized for Indian traders with popular Indian brokers (Zerodha, Groww, Angel One, Upstox), INR (₹) formatting, popular Indian pairs/indices, and psychological growth journaling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
